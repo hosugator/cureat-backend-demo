@@ -1,0 +1,21 @@
+# 1. 환경 변수 및 보안 (가장 중요)
+.env
+*.env
+.venv
+venv/
+env/
+
+# 2. 파이썬 빌드 및 캐시 (폴더가 지저분해지는 것 방지)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.pickle
+
+# 3. 운영체제 관련 (Mac 유저라면 필수)
+.DS_Store
+Thumbs.db
+
+# 4. IDE (VS Code나 PyCharm 설정)
+.vscode/
+.idea/
