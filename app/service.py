@@ -55,37 +55,43 @@ class NaverAPIClient:
 
 
 class ContentAnalyzer:
-    """2~3단계: 데이터 정제 및 LLM/키워드 분석 전담"""
+    """2~3단계: 데이터 정제 및 LLM 요약 전담"""
 
     def __init__(self):
         api_key = os.getenv("GOOGLE_API_KEY")
         if api_key:
             genai.configure(api_key=api_key)
-            self.llm = genai.GenerativeModel("gemini-1.5-flash")
-            logger.info("Gemini 모델 로드 완료")
-        else:
-            self.llm = None
-            logger.warning("Gemini 모델 로드 실패 (API 키 없음)")
+            self.model = genai.GenerativeModel("gemini-flash-lite-latest")
+            logger.info("Gemini 모델 설정 변경 완료")
 
     def generate_summary(self, name: str, context: str) -> str:
-        # 기본 요약문
-        default_summary = f"{name}은(는) 후기가 많은 인기 장소입니다."
+        if not self.model or not context:
+            return f"{name}은(는) 인기 있는 맛집입니다."
 
-        if not self.llm or not context:
-            return default_summary
+        # 1. 컨텍스트를 500자로 제한 (슬라이싱)
+        short_context = context[:2000].strip()
 
-        # 로컬 무한 로딩 방지를 위해 현재는 가공 로직만 실행 (배포 후 주석 해제)
-        # 실제 LLM 호출을 원하시면 아래 try 구문의 주석을 푸세요.
         try:
-            """
-            prompt = f"식당 '{name}'의 후기 요약: {context}. 특징을 한 문장으로 요약해줘."
-            response = self.llm.generate_content(prompt)
+            logger.info(f"Gemini 요약 요청 (컨텍스트 {len(short_context)}자)")
+
+            # 2. 프롬프트 구성
+            prompt = (
+                f"식당 '{name}'에 대한 블로그 리뷰들입니다: {short_context}\n"
+                f"이 식당의 분위기와 맛의 특징을 딱 한 문장으로 친절하게 요약해줘."
+            )
+
+            # 3. 실제 호출 (속도를 위해 토큰 제한 설정)
+            response = self.model.generate_content(
+                prompt, generation_config={"max_output_tokens": 150, "temperature": 0.7}
+            )
+
             return response.text.strip()
-            """
-            return f"최신 후기 분석: {context[:50]}..."
+
         except Exception as e:
-            logger.error(f"요약 생성 에러: {e}")
-            return default_summary
+            logger.error(f"Gemini 요약 실패: {e}")
+            return (
+                f"{name}에 대한 최신 후기가 궁금하시다면 블로그 리뷰를 참고해 보세요."
+            )
 
 
 class RecommendationService:
