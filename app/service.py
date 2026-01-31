@@ -6,6 +6,8 @@ import google.generativeai as genai
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from . import schemas
+from openai import OpenAI
+import json
 
 # 로그 설정
 logging.basicConfig(
@@ -90,56 +92,61 @@ class NaverAPIClient:
 
 class ContentAnalyzer:
     def __init__(self):
-        api_key = os.getenv("GOOGLE_API_KEY")
+        # 환경 변수를 여기서 명시적으로 다시 한번 로드합니다.
+        load_dotenv()
+        api_key = os.getenv("OPENAI_API_KEY")
+
         if api_key:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel("gemini-flash-lite-latest")
+            self.client = OpenAI(api_key=api_key)
+            self.model = "gpt-4o-mini"
+            logger.info("OpenAI 클라이언트가 성공적으로 초기화되었습니다.")
+        else:
+            self.client = None
+            logger.error("!!! OPENAI_API_KEY를 찾을 수 없습니다 !!!")
 
     def analyze_restaurant(self, name: str, context: str) -> Dict[str, Any]:
-        if not self.model or not context:
-            return {"summary": "정보가 부족합니다.", "pros": [], "cons": []}
+        # 클라이언트 체크 로그 추가
+        if not self.client:
+            logger.error("OpenAI 클라이언트 미설정으로 기본값을 반환합니다.")
+            return {
+                "summary": f"{name}은 인기 맛집입니다.",
+                "pros": ["맛"],
+                "cons": ["대기"],
+            }
 
-        # 데이터 확장: 이제 500자 제한을 풀고 더 넉넉하게(약 2000자) 던집니다.
+        if not context or len(context.strip()) < 10:
+            logger.warning(f"[{name}] 분석할 리뷰 텍스트가 너무 짧습니다.")
+            return {
+                "summary": f"{name}은 리뷰 정보가 부족한 인기 맛집입니다.",
+                "pros": ["접근성"],
+                "cons": ["리뷰 부족"],
+            }
+
         rich_context = context[:2000].strip()
 
-        prompt = (
-            f"식당 '{name}'에 대한 여러 블로그 후기 내용입니다: {rich_context}\n\n"
-            "위 내용을 바탕으로 다음 정보를 분석해줘:\n"
-            "1. 전체적인 특징 요약 (한 문장)\n"
-            "2. 방문객들이 꼽은 구체적인 장점 3가지\n"
-            "3. 방문객들이 아쉬워한 점이나 주의사항 1-2가지\n\n"
-            "응답 포맷은 반드시 아래 형식을 지켜줘:\n"
-            "요약: [내용]\n"
-            "장점: [장점1, 장점2, 장점3]\n"
-            "단점: [단점1, 단점2]"
-        )
-
         try:
-            response = self.model.generate_content(prompt)
-            text = response.text
-
-            # 간단한 파싱 로직 (실제 서비스에선 더 정교하게 처리 가능)
-            lines = text.split("\n")
-            summary = (
-                [l for l in lines if l.startswith("요약:")][0]
-                .replace("요약:", "")
-                .strip()
-            )
-            pros = (
-                [l for l in lines if l.startswith("장점:")][0]
-                .replace("장점:", "")
-                .strip()
-                .split(",")
-            )
-            cons = (
-                [l for l in lines if l.startswith("단점:")][0]
-                .replace("단점:", "")
-                .strip()
-                .split(",")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "너는 맛집 비평가야. 아래 리뷰를 요약해서 JSON으로 응답해. "
+                            '형식: {"summary": "...", "pros": ["..."], "cons": ["..."]}'
+                        ),
+                    },
+                    {"role": "user", "content": f"식당: {name}\n리뷰: {rich_context}"},
+                ],
+                response_format={"type": "json_object"},
             )
 
-            return {"summary": summary, "pros": pros, "cons": cons}
-        except:
+            content = response.choices[0].message.content
+            logger.info(f"[{name}] GPT 응답 수신 완료")
+            return json.loads(content)
+
+        except Exception as e:
+            # 에러의 정체를 로그로 정확히 찍습니다.
+            logger.error(f"[{name}] GPT 분석 중 실제 에러 발생: {str(e)}")
             return {
                 "summary": f"{name}은 인기 맛집입니다.",
                 "pros": ["맛", "분위기"],
