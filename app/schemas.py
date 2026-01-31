@@ -13,6 +13,7 @@ class RestaurantDetail(BaseModel):
     # AI 및 분석 정보
     summary: Optional[str] = Field(None, description="LLM 요약 정보")
     is_ad_filtered: bool = Field(False, description="광고 필터링 여부")
+    filtered_ad_count: int = Field(0, description="광고 필터링된 개수")
 
     # 기존 복잡한 필드들은 시각적 간결함을 위해 필수로 유지할 것만 선택
     summary_pros: Optional[List[str]] = None
