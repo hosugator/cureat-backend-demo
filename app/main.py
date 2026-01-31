@@ -12,6 +12,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://hosugator.com",  # 호수가토 실제 도메인
+        "https://www.hosugator.com",  # 호수가토 실제 도메인
         "http://localhost:3000",  # 로컬 개발 테스트용
     ],
     allow_credentials=True,
