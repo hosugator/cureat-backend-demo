@@ -1,0 +1,94 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "cureat-app",
+            "image": "832199679639.dkr.ecr.ap-northeast-2.amazonaws.com/cureat-backend:v1.1",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 8000,
+                    "hostPort": 8000,
+                    "protocol": "tcp",
+                    "name": "cureat-app-8000-tcp",
+                    "appProtocol": "http"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "NAVER_CLIENT_ID",
+                    "value": "ql1Dxb93RntQIMhA59HF"
+                },
+                {
+                    "name": "NAVER_CLIENT_SECRET",
+                    "value": "KoaJTi_amX"
+                },
+                {
+                    "name": "OPENAI_API_KEY",
+                    "value": "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"
+                }
+            ],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "ulimits": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/cureat-task",
+                    "awslogs-create-group": "true",
+                    "awslogs-region": "ap-northeast-2",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            },
+            "systemControls": []
+        }
+    ],
+    "family": "cureat-task",
+    "executionRoleArn": "arn:aws:iam::832199679639:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "volumes": [],
+    "requiresAttributes": [
+        {
+            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+        },
+        {
+            "name": "ecs.capability.execution-role-awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.ecr-auth"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+        },
+        {
+            "name": "ecs.capability.execution-role-ecr-pull"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "ecs.capability.task-eni"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+        }
+    ],
+    "placementConstraints": [],
+    "compatibilities": [
+        "EC2",
+        "FARGATE",
+        "MANAGED_INSTANCES"
+    ],
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "256",
+    "memory": "512",
+    "enableFaultInjection": false
+}

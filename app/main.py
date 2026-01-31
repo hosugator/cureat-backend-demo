@@ -1,10 +1,22 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from . import service, schemas
 
 app = FastAPI(
     title="Cureat Live Demo API",
     description="광고 필터링 및 LLM 요약 기반 맛집 추천 엔진",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://hosugator.com",  # 호수가토 실제 도메인
+        "http://localhost:3000",  # 로컬 개발 테스트용
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],  # 모든 HTTP 메서드(GET, POST 등) 허용
+    allow_headers=["*"],  # 모든 헤더 허용
 )
 
 
