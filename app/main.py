@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import service, schemas
 
 app = FastAPI(
-    title="Cureat Live Demo API",
+    title="Cureat Live Demo API - ECS 연동 테스트",
     description="광고 필터링 및 LLM 요약 기반 맛집 추천 엔진",
     version="1.0.0",
 )

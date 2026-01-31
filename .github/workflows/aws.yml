@@ -7,7 +7,7 @@ on:
 env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: cureat-backend # ECR 리포지토리 이름
-  ECS_SERVICE: cureat-service    # ECS 서비스 이름
+  ECS_SERVICE: cureat-service-v2    # ECS 서비스 이름
   ECS_CLUSTER: cureat-cluster    # ECS 클러스터 이름
   ECS_TASK_DEFINITION: task-definition.json # 아래 설명 참고
 
