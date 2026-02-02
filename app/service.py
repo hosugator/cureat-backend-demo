@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("CureatService")
 
-load_dotenv()
+# load_dotenv()
 
 
 class NaverAPIClient:
@@ -93,7 +93,7 @@ class NaverAPIClient:
 class ContentAnalyzer:
     def __init__(self):
         # 환경 변수를 여기서 명시적으로 다시 한번 로드합니다.
-        load_dotenv()
+        # load_dotenv()
         api_key = os.getenv("OPENAI_API_KEY")
 
         if api_key:
