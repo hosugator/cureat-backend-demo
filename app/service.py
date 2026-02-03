@@ -167,8 +167,10 @@ class RecommendationService:
         self.analyzer = ContentAnalyzer()
 
     def create_recommendations_v2(
-        self, prompt: str, language: str = "ko"
+        self, request: schemas.ChatRequest
     ) -> Dict[str, Any]:
+        prompt = request.prompt
+        language = request.language
         logger.info(f"--- [V2] '{prompt}' ({language}) 프로세스 시작 ---")
 
         # [Step 0] 쿼리 최적화 (유저 입력을 한국어 검색어로 변환)
