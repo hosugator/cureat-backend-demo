@@ -173,22 +173,29 @@ class RecommendationService:
 
         # [Step 0] 쿼리 최적화 (유저 입력을 한국어 검색어로 변환)
         search_query = prompt
-        try:
-            opt_resp = self.analyzer.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Extract the best Korean search keywords for Naver Maps from the user input. Respond only with keywords in Korean.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=20,
-            )
-            search_query = opt_resp.choices[0].message.content.strip()
-            logger.info(f"최적화된 키워드: {search_query}")
-        except:
-            logger.error("키워드 최적화 실패, 원문 사용")
+        if language == "en":
+            try:
+                opt_resp = self.analyzer.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {
+                            "role": "system", 
+                            "content": "You are a professional Korean search optimizer. "
+                                    "Translate the user input into 1-2 essential Korean keywords for Naver Maps. "
+                                    "Reply ONLY with the keywords. No explanation. "
+                                    "Example Input: 'Good sushi in Gangnam' -> Output: '강남역 스시'"
+                        },
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=20,
+                    temperature=0  # 결과의 일관성을 위해 0으로 설정
+                )
+                search_query = opt_resp.choices[0].message.content.strip()
+                # GPT가 따옴표 등을 포함할 수 있으므로 제거
+                search_query = search_query.replace('"', '').replace("'", "")
+                logger.info(f"[V2] 최적화된 키워드: {search_query}")
+            except Exception as e:
+                logger.error(f"키워드 최적화 실패: {e}")
 
         # [Step 1] 최적화된 키워드로 검색
         places = self.naver_client.search_places(search_query)
