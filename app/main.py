@@ -44,4 +44,17 @@ def get_recommendations(request: schemas.ChatRequest):
         raise HTTPException(status_code=500, detail=f"추천 생성 중 오류 발생: {str(e)}")
 
 
+@app.post(
+    "/recommendations/v2", response_model=schemas.RecommendationResponse, tags=["Demo"]
+)
+def get_recommendations_v2(request: schemas.ChatRequest):
+    try:
+        # service_instance의 v2 메서드를 직접 호출
+        return service.service_instance.create_recommendations_v2(
+            request.prompt, request.language
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"V2 에러: {str(e)}")
+
+
 # (필요 시) 코스 생성 API 등 추가 기능도 같은 방식으로 service 연결 가능

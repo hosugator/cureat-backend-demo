@@ -104,7 +104,9 @@ class ContentAnalyzer:
             self.client = None
             logger.error("!!! OPENAI_API_KEY를 찾을 수 없습니다 !!!")
 
-    def analyze_restaurant(self, name: str, context: str) -> Dict[str, Any]:
+    def analyze_restaurant(
+        self, name: str, context: str, language: str = "ko"
+    ) -> Dict[str, Any]:
         # 클라이언트 체크 로그 추가
         if not self.client:
             logger.error("OpenAI 클라이언트 미설정으로 기본값을 반환합니다.")
@@ -124,18 +126,21 @@ class ContentAnalyzer:
 
         rich_context = context[:2000].strip()
 
+        target_lang = "English" if language == "en" else "Korean"  # 언어 설정
+
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            "너는 맛집 비평가야. 아래 리뷰를 요약해서 JSON으로 응답해. "
-                            '형식: {"summary": "...", "pros": ["..."], "cons": ["..."]}'
-                        ),
+                        "content": f"You are a food critic. Summarize the following reviews in {target_lang}."
+                        'Respond ONLY in JSON format: {"summary": "...", "pros": ["..."], "cons": ["..."]}',
                     },
-                    {"role": "user", "content": f"식당: {name}\n리뷰: {rich_context}"},
+                    {
+                        "role": "user",
+                        "content": f"Restaurant: {name}\nReviews: {rich_context}",
+                    },
                 ],
                 response_format={"type": "json_object"},
             )
@@ -160,6 +165,69 @@ class RecommendationService:
     def __init__(self):
         self.naver_client = NaverAPIClient()
         self.analyzer = ContentAnalyzer()
+
+    def create_recommendations_v2(
+        self, prompt: str, language: str = "ko"
+    ) -> Dict[str, Any]:
+        logger.info(f"--- [V2] '{prompt}' ({language}) 프로세스 시작 ---")
+
+        # [Step 0] 쿼리 최적화 (유저 입력을 한국어 검색어로 변환)
+        search_query = prompt
+        try:
+            opt_resp = self.analyzer.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Extract the best Korean search keywords for Naver Maps from the user input. Respond only with keywords in Korean.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=20,
+            )
+            search_query = opt_resp.choices[0].message.content.strip()
+            logger.info(f"최적화된 키워드: {search_query}")
+        except:
+            logger.error("키워드 최적화 실패, 원문 사용")
+
+        # [Step 1] 최적화된 키워드로 검색
+        places = self.naver_client.search_places(search_query)
+        if not places:
+            return {"answer": "검색 결과가 없습니다.", "restaurants": []}
+
+        final_list = []
+        for item in places[:3]:
+            name = self.naver_client._clean_html(item["title"])
+            addr = item.get("roadAddress") or item.get("address", "")
+
+            # 딱 한 번만 호출해서 변수에 담아두기
+            blog_results = self.naver_client.fetch_blog_context(name, addr)
+
+            # 분석기에는 텍스트만 전달
+            analysis = self.analyzer.analyze_restaurant(name, blog_results["context"], language=language)
+
+            final_list.append(
+                {
+                    "name": name,
+                    "address": addr,
+                    "summary": analysis["summary"],
+                    "summary_pros": analysis["pros"],
+                    "summary_cons": analysis["cons"],
+                    "is_ad_filtered": True,
+                    "filtered_ad_count": blog_results[
+                        "removed_count"
+                    ],  # 이 값이 0보다 크면 성공!
+                    "mapx": item.get("mapx"),
+                    "mapy": item.get("mapy"),
+                    "keywords": ["맛집", "추천"],
+                }
+            )
+
+        logger.info("--- 추천 프로세스 완료 ---")
+        return {
+            "answer": f"'{prompt}' 지역의 추천 결과입니다.",
+            "restaurants": final_list,
+        }
 
     def create_recommendations(self, prompt: str) -> Dict[str, Any]:
         logger.info(f"--- '{prompt}' 추천 프로세스 시작 ---")

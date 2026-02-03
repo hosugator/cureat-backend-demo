@@ -2,6 +2,11 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 
+class ChatRequest(BaseModel):
+    prompt: str = Field(..., example="강남역 맛집")
+    language: str = Field("ko", example="en")  # 추가: 기본값은 ko
+
+
 # --- 음식점 상세 정보 스케마 (데모용) ---
 class RestaurantDetail(BaseModel):
     name: str
@@ -23,10 +28,10 @@ class RestaurantDetail(BaseModel):
 
 
 # --- API 요청/응답 스케마 ---
-class ChatRequest(BaseModel):
-    """라이브 데모에서는 user_id를 생략하고 프롬프트만 받습니다."""
+# class ChatRequest(BaseModel):
+#     """라이브 데모에서는 user_id를 생략하고 프롬프트만 받습니다."""
 
-    prompt: str = Field(..., example="강남역 맛집")
+#     prompt: str = Field(..., example="강남역 맛집")
 
 
 class RecommendationResponse(BaseModel):
