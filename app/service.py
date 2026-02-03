@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("CureatService")
 
-# load_dotenv()
+load_dotenv(".env.test")
 
 
 class NaverAPIClient:
@@ -166,9 +166,7 @@ class RecommendationService:
         self.naver_client = NaverAPIClient()
         self.analyzer = ContentAnalyzer()
 
-    def create_recommendations_v2(
-        self, request: schemas.ChatRequest
-    ) -> Dict[str, Any]:
+    def create_recommendations_v2(self, request: schemas.ChatRequest) -> Dict[str, Any]:
         prompt = request.prompt
         language = request.language
         logger.info(f"--- [V2] '{prompt}' ({language}) 프로세스 시작 ---")
@@ -181,20 +179,20 @@ class RecommendationService:
                     model="gpt-4o-mini",
                     messages=[
                         {
-                            "role": "system", 
+                            "role": "system",
                             "content": "You are a professional Korean search optimizer. "
-                                    "Translate the user input into 1-2 essential Korean keywords for Naver Maps. "
-                                    "Reply ONLY with the keywords. No explanation. "
-                                    "Example Input: 'Good sushi in Gangnam' -> Output: '강남역 스시'"
+                            "Translate the user input into 1-2 essential Korean keywords for Naver Maps. "
+                            "Reply ONLY with the keywords. No explanation. "
+                            "Example Input: 'Good sushi in Gangnam' -> Output: '강남역 스시'",
                         },
-                        {"role": "user", "content": prompt}
+                        {"role": "user", "content": prompt},
                     ],
                     max_tokens=20,
-                    temperature=0  # 결과의 일관성을 위해 0으로 설정
+                    temperature=0,  # 결과의 일관성을 위해 0으로 설정
                 )
                 search_query = opt_resp.choices[0].message.content.strip()
                 # GPT가 따옴표 등을 포함할 수 있으므로 제거
-                search_query = search_query.replace('"', '').replace("'", "")
+                search_query = search_query.replace('"', "").replace("'", "")
                 logger.info(f"[V2] 최적화된 키워드: {search_query}")
             except Exception as e:
                 logger.error(f"키워드 최적화 실패: {e}")
@@ -206,19 +204,45 @@ class RecommendationService:
 
         final_list = []
         for item in places[:3]:
-            name = self.naver_client._clean_html(item["title"])
-            addr = item.get("roadAddress") or item.get("address", "")
+            # 1. 네이버 API에서 가져온 원본 한글 데이터 유지
+            ko_name = self.naver_client._clean_html(item["title"])
+            ko_addr = item.get("roadAddress") or item.get("address", "")
 
-            # 딱 한 번만 호출해서 변수에 담아두기
-            blog_results = self.naver_client.fetch_blog_context(name, addr)
+            # 2. 블로그 후기 수집 (반드시 '한글' 이름과 주소로 검색해야 함)
+            blog_results = self.naver_client.fetch_blog_context(ko_name, ko_addr)
 
-            # 분석기에는 텍스트만 전달
-            analysis = self.analyzer.analyze_restaurant(name, blog_results["context"], language=language)
+            # 3. LLM 분석 수행 (한글 데이터를 바탕으로 분석)
+            analysis = self.analyzer.analyze_restaurant(ko_name, blog_results["context"], language=language)
+
+            # 4. 사용자에게 보여줄 변수 설정 (기본은 한글)
+            display_name = ko_name
+            display_addr = ko_addr
+
+            # 5. [핵심] 만약 영어 모드라면, 수집/분석이 끝난 후 최종 노출용 데이터만 번역
+            if language == "en":
+                try:
+                    trans_resp = self.analyzer.client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {
+                                "role": "system", 
+                                "content": "Translate the restaurant name and address into English for tourists. "
+                                        "Reply ONLY in JSON: {\"name\": \"...\", \"address\": \"...\"}"
+                            },
+                            {"role": "user", "content": f"Name: {ko_name}\nAddress: {ko_addr}"}
+                        ],
+                        response_format={"type": "json_object"}
+                    )
+                    trans_data = json.loads(trans_resp.choices[0].message.content)
+                    display_name = trans_data.get("name", ko_name)
+                    display_addr = trans_data.get("address", ko_addr)
+                except Exception as e:
+                    logger.error(f"Translation failed: {e}")
 
             final_list.append(
                 {
-                    "name": name,
-                    "address": addr,
+                    "name": f"{ko_name} ({display_name})",
+                    "address": display_addr,
                     "summary": analysis["summary"],
                     "summary_pros": analysis["pros"],
                     "summary_cons": analysis["cons"],
@@ -234,7 +258,7 @@ class RecommendationService:
 
         logger.info("--- 추천 프로세스 완료 ---")
         return {
-            "answer": f"'{prompt}' 지역의 추천 결과입니다.",
+            "answer": f"Search: '{prompt}'",
             "restaurants": final_list,
         }
 

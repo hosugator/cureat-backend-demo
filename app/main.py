@@ -51,7 +51,7 @@ def get_recommendations_v2(request: schemas.ChatRequest):
     try:
         # service_instance의 v2 메서드를 직접 호출
         return service.service_instance.create_recommendations_v2(
-            request.prompt, request.language
+            request
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"V2 에러: {str(e)}")

@@ -4,6 +4,7 @@
 .venv
 venv/
 env/
+.env.test
 
 # 2. 파이썬 빌드 및 캐시 (폴더가 지저분해지는 것 방지)
 __pycache__/
