@@ -15,7 +15,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("CureatService")
 
-load_dotenv(".env.test")
+if os.path.exists(".env.test"):
+    load_dotenv(".env.test")
+    logger.info("Loaded environment variables from .env.test")
+else:
+    # 파일이 없으면 시스템 환경 변수(ECS)를 그대로 사용
+    logger.info("Using system environment variables (ECS/Production)")
 
 
 class NaverAPIClient:
@@ -92,8 +97,6 @@ class NaverAPIClient:
 
 class ContentAnalyzer:
     def __init__(self):
-        # 환경 변수를 여기서 명시적으로 다시 한번 로드합니다.
-        # load_dotenv()
         api_key = os.getenv("OPENAI_API_KEY")
 
         if api_key:
@@ -212,7 +215,9 @@ class RecommendationService:
             blog_results = self.naver_client.fetch_blog_context(ko_name, ko_addr)
 
             # 3. LLM 분석 수행 (한글 데이터를 바탕으로 분석)
-            analysis = self.analyzer.analyze_restaurant(ko_name, blog_results["context"], language=language)
+            analysis = self.analyzer.analyze_restaurant(
+                ko_name, blog_results["context"], language=language
+            )
 
             # 4. 사용자에게 보여줄 변수 설정 (기본은 한글)
             display_name = ko_name
@@ -225,13 +230,16 @@ class RecommendationService:
                         model="gpt-4o-mini",
                         messages=[
                             {
-                                "role": "system", 
+                                "role": "system",
                                 "content": "Translate the restaurant name and address into English for tourists. "
-                                        "Reply ONLY in JSON: {\"name\": \"...\", \"address\": \"...\"}"
+                                'Reply ONLY in JSON: {"name": "...", "address": "..."}',
                             },
-                            {"role": "user", "content": f"Name: {ko_name}\nAddress: {ko_addr}"}
+                            {
+                                "role": "user",
+                                "content": f"Name: {ko_name}\nAddress: {ko_addr}",
+                            },
                         ],
-                        response_format={"type": "json_object"}
+                        response_format={"type": "json_object"},
                     )
                     trans_data = json.loads(trans_resp.choices[0].message.content)
                     display_name = trans_data.get("name", ko_name)
