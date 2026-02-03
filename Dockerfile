@@ -20,7 +20,7 @@ COPY . .
 ENV PYTHONPATH=/app
 
 # 7. 포트 설정
-EXPOSE 8000
+EXPOSE 80
 
 # 8. 실행 명령 (app.main:app 경로가 프로젝트 루트 기준인지 확인 필요)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
