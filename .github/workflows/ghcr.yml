@@ -1,0 +1,62 @@
+# cureat 백엔드를 arm64 이미지로 빌드해 GHCR(GitHub Container Registry)에 푸시.
+# 대상: Oracle Ampere(ARM64) k3s 노드. 그래서 반드시 linux/arm64 로 빌드해야 함.
+name: Build and push to GHCR
+
+on:
+  push:
+    branches: ["main"]        # main 에 푸시되면 빌드 (기존 aws.yml과 동일 트리거)
+  workflow_dispatch: {}        # 수동 실행도 허용 (Actions 탭에서 버튼)
+
+env:
+  # GHCR 이미지 이름. 소문자만 허용 → github.repository_owner(hosugator)가 이미 소문자라 OK.
+  IMAGE: ghcr.io/${{ github.repository_owner }}/cureat-backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # WHY: GHCR에 푸시하려면 이 권한 필수. (기본 GITHUB_TOKEN에 부여)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # QEMU: amd64 러너에서 arm64를 "에뮬레이션"해 크로스 빌드.
+      # WHY: 기본 GitHub 러너는 amd64라, arm64 이미지를 만들려면 QEMU가 필요.
+      #   (대안: runs-on: ubuntu-24.04-arm 네이티브 arm 러너 → 훨씬 빠름. public 레포면 무료.
+      #    지금은 호환성 위해 QEMU. 빌드가 느리면 네이티브 러너로 교체 고려.)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # GHCR 로그인 — 별도 시크릿 불필요. GITHUB_TOKEN이 자동 주입됨.
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 태그 자동 생성. WHY: latest만 쓰면 어느 커밋인지 추적 불가 + dangling 발생.
+      #   → 커밋 SHA(불변, 배포 롤백용) + latest(편의) 둘 다 붙임.
+      - name: Compute tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64        # ← 핵심: arm64 단일 타깃 (Oracle Ampere)
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha           # GitHub Actions 캐시로 레이어 재사용 → 재빌드 가속
+          cache-to: type=gha,mode=max

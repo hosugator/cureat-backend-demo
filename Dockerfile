@@ -19,8 +19,10 @@ COPY . .
 # 6. PYTHONPATH 설정 (중요: app 패키지를 인식시키기 위함)
 ENV PYTHONPATH=/app
 
-# 7. 포트 설정
-EXPOSE 80
+# 7. 포트 설정 — 80 → 8000 으로 변경
+#    WHY: 80은 특권 포트(root 필요). 8000 같은 비특권 포트가 컨테이너/k8s 관례이고,
+#    나중에 non-root 유저로 돌리기도 쉬움. k8s manifests(deployment/service)의 포트도 8000으로 통일.
+EXPOSE 8000
 
-# 8. 실행 명령 (app.main:app 경로가 프로젝트 루트 기준인지 확인 필요)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+# 8. 실행 명령
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,12 @@
+# 빌드 컨텍스트에서 제외 — 이미지에 안 들어가고 빌드도 빨라짐.
+# WHY: COPY . . 이 불필요한 파일까지 복사하면 이미지가 커지고, 특히 시크릿/로컬설정이 이미지에 박힐 위험.
+.git
+.github
+__pycache__/
+*.pyc
+.env
+.env.*
+*.md
+task-definition.json      # 🔴 노출 키가 있던 파일 — 이미지에 절대 포함 금지
+.dockerignore
+Dockerfile
