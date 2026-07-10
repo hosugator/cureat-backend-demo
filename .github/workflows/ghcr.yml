@@ -60,3 +60,21 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha           # GitHub Actions 캐시로 레이어 재사용 → 재빌드 가속
           cache-to: type=gha,mode=max
+
+      # 오라클 서빙용 매니페스트(hosugator-infra, private)를 같은 sha 태그로 갱신.
+      # 이 레포의 기본 GITHUB_TOKEN은 이 레포 안에서만 유효해 다른 프라이빗 레포엔 못 쓴다 → INFRA_REPO_TOKEN(hosugator-infra 전용 fine-grained PAT) 사용.
+      - name: Update hosugator-infra manifest (Oracle serving)
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          git clone https://x-access-token:${{ secrets.INFRA_REPO_TOKEN }}@github.com/hosugator/hosugator-infra.git /tmp/hosugator-infra
+          cd /tmp/hosugator-infra
+          sed -i "s|image: ghcr.io/hosugator/cureat-backend:.*|image: ghcr.io/hosugator/cureat-backend:sha-${SHORT_SHA}|" apps/cureat/deployment.yaml
+          git config user.email "ci@github.com"
+          git config user.name "Github Actions"
+          git add apps/cureat/deployment.yaml
+          if git diff --cached --quiet; then
+            echo "이미지 태그 변경 없음 — commit 스킵"
+          else
+            git commit -m "ci(cureat): update image tag to sha-${SHORT_SHA}"
+            git push
+          fi
